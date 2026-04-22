@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}歷史紀錄 - 個人記帳工具{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form action="{{ url_for('main.history') }}" method="get" class="row align-items-end">
+            <div class="col-md-4 mb-3 mb-md-0">
+                <label for="dateFilter" class="form-label">選擇特定日期</label>
+                <input type="date" class="form-control" id="dateFilter" name="date" value="{{ filter_date or '' }}">
+            </div>
+            <div class="col-md-8">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> 篩選</button>
+                <a href="{{ url_for('main.history') }}" class="btn btn-outline-secondary">顯示全部</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="card-title mb-0">{% if filter_date %}{{ filter_date }} 紀錄{% else %}所有歷史紀錄{% endif %}</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if records %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>日期</th>
+                        <th>類型</th>
+                        <th>金額</th>
+                        <th>備註</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                    <tr>
+                        <td>{{ r.date }}</td>
+                        <td>
+                            {% if r.type == 'income' %}
+                                <span class="badge bg-success">收入</span>
+                            {% else %}
+                                <span class="badge bg-danger">支出</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold {% if r.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            {% if r.type == 'income' %}+{% else %}-{% endif %}${{ "%.2f"|format(r.amount) }}
+                        </td>
+                        <td>{{ r.description }}</td>
+                        <td class="text-end">
+                            <form action="{{ url_for('main.delete_record', id=r.id) }}" method="post" class="d-inline" onsubmit="return confirmDelete();">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1"></i>
+            <p class="mt-2">找不到相關紀錄</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
