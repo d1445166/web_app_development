@@ -1,94 +1,77 @@
-# 系統架構設計 (System Architecture) - 個人記帳簿
-
-本文件描述個人記帳簿應用程式的系統架構，包含技術選型、資料夾結構分層以及各元件的互動關係，主要提供開發團隊作為實作基礎。
-
----
+# 系統架構設計 (ARCHITECTURE) - 作業提醒管理系統
 
 ## 1. 技術架構說明
 
-本系統為輕巧的個人用服務，因此不採用複雜的前後端分離架構（例如 React + RESTful API 模式），而是採用傳統的伺服器渲染 (Server-Side Rendering) 架構來降低系統複雜度，並提高畫面載入速度。
+### 選用技術與原因
+- **後端框架**：Python + Flask
+  - 原因：Flask 是一個輕量級的 Python 後端框架，非常適合用於開發中小型應用程式或 MVP（最小可行性產品）。它簡單易學，且具有高度的客製化與擴展性。
+- **模板引擎**：Jinja2
+  - 原因：Jinja2 是 Flask 內建支援的模板引擎。在這個專案中，我們不採用前後端分離架構，而是由 Flask 後端透過 Jinja2 將資料動態渲染到 HTML 頁面中，這能加速開發並減少撰寫前後端 API 的負擔。
+- **資料庫**：SQLite
+  - 原因：SQLite 是一個輕量的檔案型資料庫，不需要安裝或維護獨立的資料庫伺服器。對於儲存大學生的作業、報告和提醒設定而言，效能和容量都綽綽有餘。
 
-### 1.1 選用技術與原因
-- **後端框架：Python + Flask**
-  輕量級、彈性高，適合快速開發單純的記帳系統，並具備優異的擴充能力。
-- **模板引擎：Jinja2**
-  與 Flask 整合度極高，可直接在 HTML 中動態嵌入 Python 變數與邏輯迴圈，負責 View 層面渲染。
-- **資料庫：SQLite**
-  內建於 Python、不需額外安裝服務。因本專案對象為「個人」，對於高併發沒有嚴格的要求，輕小且容易單機備份的特性能完美滿足需求。
-
-### 1.2 Flask MVC 模式對應
-本專案會依循 MVC (Model-View-Controller) 的設計模式來規劃職責分配：
-- **Model (資料庫模型)**: 透過 sqlite3（或加上 SQLAlchemy 等輕量工具）與資料庫互動，負責處理「總餘額計算」、「讀寫每日收支紀錄」及「存取餘額底線設定」。
-- **View (視圖)**: 接收 Controller 傳遞來的資料，經由 Jinja2 解析與生成 HTML 畫面，加上原生的 CSS/JS 控制（如：餘額過低的紅色警示與刪除時的確認對話框）。
-- **Controller (路由與邏輯)**: 即 Flask 的 Routes 設計，負責接收使用者的瀏覽器網頁請求 (GET/POST)，去向 Model 取用相對應資料，處理簡單商業邏輯後交給 View 渲染最終結果。
+### Flask MVC 模式說明
+雖然 Flask 本身沒有嚴格限制目錄結構，但我們將採用類似 MVC（Model-View-Controller）的架構來組織程式碼：
+- **Model（模型）**：負責與 SQLite 資料庫互動，定義資料表結構（例如任務名稱、截止日期、完成狀態）以及對應的 CRUD（新增、讀取、更新、刪除）操作。
+- **View（視圖）**：在此架構中，View 指的是 Jinja2 所渲染的 HTML 模板，負責呈現頁面結構與樣式給使用者觀看及互動。
+- **Controller（控制器）**：由 Flask 的 Routes（路由）擔任，負責接收使用者的瀏覽器請求、調用 Model 處理資料，最後將結果傳遞給 View 進行渲染。
 
 ---
 
 ## 2. 專案資料夾結構
 
-專案的程式碼會以功能屬性進行模組化切分，採用 Flask 常見的結構：
+以下是專案的完整資料夾樹狀結構及用途說明：
 
 ```text
 web_app_development/
-├── app/                  # 應用程式主目錄
-│   ├── __init__.py       # 負責初始化 Flask 應用並註冊路由配置
-│   ├── models/           # 模型層 (負責資料庫邏輯或 ORM 定義)
-│   │   ├── __init__.py
-│   │   ├── record.py     # 收支紀錄的物件，處理新增、刪除、歷史查詢
-│   │   └── user.py       # 使用者設定物件，儲存餘額底線
-│   ├── routes/           # 路由層 / 控制器
-│   │   ├── __init__.py 
-│   │   └── main.py       # 定義主要存取點 (如：/, /add, /delete, /history, /settings)
-│   ├── templates/        # 視圖層 - Jinja2 HTML 樣板目錄
-│   │   ├── base.html     # 共用版面佈局 (Head, Navbar, Footer)
-│   │   ├── index.html    # 儀表板首頁 (顯示當日收支與餘額)
-│   │   ├── history.html  # 歷史紀錄查閱與過濾頁面
-│   │   └── settings.html # 設定頁面 (餘額門檻設定)
-│   └── static/           # 網頁所需的靜態資源
-│       ├── css/          # 視覺樣式設定檔 (style.css)
-│       └── js/           # 前端互動腳本 (例如：防呆操作與動態提示)
-├── instance/             # 不受版控的本機實例資料夾
-│   └── database.db       # SQLite 實體資料庫檔案
-├── docs/                 # 專案說明文件存放區 (PRD.md, ARCHITECTURE.md 等)
-├── requirements.txt      # 專案依賴的 Python 套件清單
-└── app.py                # 系統執行進入點 (Entry Point)
+├── app/                        # 應用程式主要資料夾
+│   ├── models/                 # 資料庫模型 (Model)
+│   │   └── task.py             # 定義作業/報告任務的資料結構與資料庫操作
+│   ├── routes/                 # Flask 路由 (Controller)
+│   │   └── index.py            # 處理首頁與任務操作的路由邏輯
+│   ├── templates/              # Jinja2 HTML 模板 (View)
+│   │   ├── base.html           # 共用的 HTML 網頁骨架
+│   │   └── index.html          # 首頁 (任務清單與新增介面)
+│   └── static/                 # CSS / JS 等靜態資源
+│       ├── css/
+│       │   └── style.css       # 介面排版與顏色樣式
+│       └── js/
+│           └── main.js         # 前端互動邏輯 (如刪除防呆、簡單過濾)
+├── instance/                   # 存放不應加入版本控制的環境變數或資料庫
+│   └── database.db             # SQLite 資料庫檔案
+├── docs/                       # 專案相關文件
+│   ├── PRD.md                  # 產品需求文件
+│   └── ARCHITECTURE.md         # 系統架構設計文件 (本文件)
+├── requirements.txt            # Python 依賴套件清單
+└── app.py                      # Flask 程式啟動入口
 ```
 
 ---
 
 ## 3. 元件關係圖
 
-以下展示使用者透過瀏覽器發送請求時，後端各層級之間的互動流程：
+以下展示了系統中各元件的互動流程：
 
 ```mermaid
-sequenceDiagram
-    participant Browser as 瀏覽器 (使用者)
-    participant Route as Flask Route (Controller)
-    participant Model as Model (資料庫邏輯)
-    participant DB as SQLite 資料庫
-    participant Template as Jinja2 樣板 (View)
-
-    Browser->>Route: 1. 發送請求 (例如：查看首頁 GET /)
-    Route->>Model: 2. 呼叫取得當日收支明細 & 總餘額
-    Model->>DB: 3. 讀取 DB 資料庫紀錄
-    DB-->>Model: 4. 回傳 Query 結果資料
-    Model-->>Route: 5. 回傳資料物件陣列
-    Route->>Template: 6. 決定渲染 index.html 並傳遞變數
-    Template-->>Route: 7. 渲染完成產生完整的 HTML 字串
-    Route-->>Browser: 8. 回傳 HTML 讓瀏覽器呈現畫面
+graph TD
+    A[使用者瀏覽器] -->|1. 發送請求 (GET/POST)| B(Flask Routes / Controller)
+    B -->|2. 讀取/寫入資料| C(Models)
+    C <-->|3. 執行 SQL 語法| D[(SQLite Database)]
+    C -->|4. 回傳資料結果| B
+    B -->|5. 傳遞資料與渲染指令| E(Jinja2 Templates / View)
+    E -->|6. 回傳完整的 HTML| B
+    B -->|7. 回應畫面給使用者| A
 ```
 
 ---
 
 ## 4. 關鍵設計決策
 
-以下列出本專案中重要的技術設計決策與原因：
-
-1. **捨棄前後端分離架構，採用伺服器端渲染 (SSR)**
-   - **原因**：考慮到這是一個單一用戶、功能明確的個人記帳工具，核心需求在於「最快完成記帳與檢視」，不須仰賴複雜的前端框架處理狀態。直接採用 Flask 搭配 Jinja2 可以少去 API 開發與前端路由配置的繁瑣程序，一體性最高，開發速度最快。
-2. **所有頁面繼承 `base.html` 共用樣板**
-   - **原因**：為了介面的統一以及日後維護的便利，將整個網站的框架 (例如 <head>、共用導覽列 Navbar) 統一放進 `base.html` 內。其他特定頁面如記帳首頁、設定等只需透過 `{% block content %}` 填補內容，保持 HTML 程式碼乾淨且不重複 (DRY 原則)。
-3. **安全性與資料獨立性：獨立 `instance/` 資料夾設計**
-   - **原因**：由於所有的記帳內容與重要設定都會儲存在 SQLite (`database.db`) 中，將這個實體檔案獨立至 `instance/` 目錄並從版本控制系統 (`.gitignore`) 中忽略，能避免個人隱私資料隨著程式碼一併發布到遠端代碼庫。
-4. **危險操作前端防呆機制**
-   - **原因**：針對「刪除收支紀錄」功能，不會單純使用按鈕直連後端路由，而會加入 JavaScript 原生的 `confirm()` 對話提示框。考量到個人的操作習慣，此舉可避免點擊錯誤導致辛苦建立的記帳資料永久遺失。
+1. **不採用前後端分離架構**：
+   - **原因**：考量到此專案為作業提醒 MVP，功能聚焦於集中管理與清單檢視。使用 Jinja2 伺服器端渲染 (SSR) 可以避免撰寫大量的 API 與前端非同步獲取資料的邏輯，大幅降低開發初期複雜度與時間成本，快速讓學生能開始使用。
+2. **依賴 SQLite 檔案型資料庫**：
+   - **原因**：本系統預設為個人使用或單一專案規模，不需要高併發存取。SQLite 的檔案可以直接存放於 `instance/` 資料夾內，不僅免去設定資料庫伺服器的麻煩，也讓本機測試和備份非常方便。
+3. **以布林值 (Boolean) 簡化任務狀態**：
+   - **原因**：為了保持操作簡單直覺，我們僅使用布林值欄位（如 `is_completed`）來記錄任務是否完成，而不是設計複雜的狀態機（例如：未開始、進行中、已完成）。這足以滿足「勾選已完成以過濾清單」的需求。
+4. **以視覺化顏色警示代替推播通知 (MVP 階段)**：
+   - **原因**：實作真實的手機推播或 Email 發信系統會增加許多第三方服務串接與環境設定的複雜度。因此在 MVP 階段，選擇根據距離截止日期的遠近，在網頁前端改變元素的顏色（如距離不到 24 小時則亮紅色警告）作為提醒手段。
